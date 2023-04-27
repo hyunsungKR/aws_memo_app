@@ -5,6 +5,7 @@ from mysql_connection import get_connection
 from mysql.connector import Error
 from flask_jwt_extended import jwt_required
 from flask_jwt_extended import get_jwt_identity
+from utils import execute_query
 
 class MemoListResource(Resource) : 
     
@@ -28,40 +29,28 @@ class MemoListResource(Resource) :
 
 
 
-        # 2. 이 레시피정보를 DB에 저장해야한다.
-        
-        try :
-            ### 1. DB에 연결
-            connection = get_connection()
 
-            ### 2. 쿼리문 만들기
-            query = '''insert into memo
-                    (userId,title,date,content)
-                    values
-                    (%s,%s,%s,%s);'''
-            ### 3. 쿼리에 매칭되는 변수 처리 해준다. 튜플로!
-            record = ( user_id,data['title'],data['date'],data['content'] )
+        ### 2. 쿼리문 만들기
+        query = '''insert into memo
+                (userId,title,date,content)
+                values
+                (%s,%s,%s,%s);'''
+        ### 3. 쿼리에 매칭되는 변수 처리 해준다. 튜플로!
+        record = ( user_id,data['title'],data['date'],data['content'] )
 
-            ### 4. 커서를 가져온다.
-            cursor=connection.cursor()
+        try:
+            execute_query(query,record)
 
-            ### 5. 쿼리문을 커서로 실행한다.
-            cursor.execute(query, record)
+       
 
-            ### 6. 커밋을 해줘야 DB에 완전히 반영된다.
-            connection.commit()
-
-            ### 7. 자원 해제
-            cursor.close()
-            connection.close()
+            
 
         except Error as e :
 
             print(e)
-            cursor.close()
-            connection.close()
 
             return{"result" : "fail", "error" : str(e)} , 500
+        
 
 
 
@@ -117,13 +106,12 @@ class MemoListResource(Resource) :
 
 
 
-            cursor.close()
-            connection.close()
         except Error as e :
             print(e)
+            return{"result":"fail","error":str(e)}, 500
+        finally:
             cursor.close()
             connection.close()
-            return{"result":"fail","error":str(e)}, 500
         
         return {"result" : 'seccess','items':result_list,'count':len(result_list)}, 200
 
@@ -147,20 +135,14 @@ class MemoResource(Resource) :
             
             record = (data['title'],data['date'],data['content'],memo_id,user_id)
 
-            cursor = connection.cursor()
+            execute_query(query, record)
 
-            cursor.execute(query, record)
 
-            connection.commit()
-
-            cursor.close()
-            connection.close()
 
         except Error as e :
             print(e)
-            cursor.close()
-            connection.close()
             return {'result' : 'fail', 'error' : str(e)}, 500
+        
 
         return {'result' : 'success' }, 200
 
@@ -170,24 +152,18 @@ class MemoResource(Resource) :
         user_id=get_jwt_identity()
 
         try :
-            connection = get_connection()
             query = '''delete from memo
                     where id = %s and userId = %s;'''
             record = (memo_id,user_id)
+            execute_query(query,record)
 
-            cursor = connection.cursor()
+            
 
-            cursor.execute(query,record)
-
-            connection.commit()
-
-            cursor.close()
-            connection.close()
         except Error as e :
             print(e)
-            cursor.close()
-            connection.close()
+            
             return{'result':'fail','error':str(e)}, 500
+        
 
         return {'result':'success'},200    
 
@@ -224,14 +200,15 @@ class FollowMemoListResource(Resource) :
                 result_list[i]['createdAt']=row['createdAt'].isoformat()
                 result_list[i]['date']=row['date'].isoformat()
                 i = i+1
-            cursor.close()
-            connection.close()
         
         except Error as e :
             print(e)
+        
+            return{'error':str(e)},500
+        finally:
             cursor.close()
             connection.close()
-            return{'error':str(e)},500
+
 
 
 
